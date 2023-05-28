@@ -1,12 +1,22 @@
-use std::path::PathBuf;
-
 use clap::Parser;
 use git2::Repository;
+use skim::prelude::*;
+use std::path::PathBuf;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {}
+
+struct Branch {
+    name: String,
+}
+
+impl SkimItem for Branch {
+    fn text(&self) -> Cow<str> {
+        Cow::Borrowed(&self.name)
+    }
+}
 
 fn find_git_root() -> Option<PathBuf> {
     let current_dir = std::env::current_dir().ok()?;
@@ -55,5 +65,21 @@ fn main() {
     };
 
     let branch_names = get_branch_names(&repo);
-    println!("Branches: {:?}", branch_names);
+
+    let options = SkimOptionsBuilder::default().build().unwrap();
+
+    let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
+    branch_names.iter().for_each(|branch_name| {
+        let _ = tx_item.send(Arc::new(Branch {
+            name: branch_name.to_string(),
+        }));
+    });
+
+    drop(tx_item);
+
+    let selected_items = Skim::run_with(&options, Some(rx_item))
+        .map(|out| out.selected_items)
+        .unwrap_or_else(Vec::new);
+
+    println!("{}", selected_items.first().unwrap().output());
 }
