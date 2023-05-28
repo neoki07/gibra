@@ -1,4 +1,4 @@
-# git-co
+# [WIP] git-co
 
 `git-co` is a command-line tool that replaces the `git checkout` command, enabling you to switch branches by selecting from a list of branch names using arrow keys.
 
