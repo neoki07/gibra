@@ -51,6 +51,18 @@ fn get_branch_names(repo: &Repository) -> Vec<String> {
     branch_names.collect::<Vec<String>>()
 }
 
+fn checkout(repo: Repository, branch_name: String) {
+    let (object, reference) = repo.revparse_ext(&branch_name).expect("Object not found");
+    repo.checkout_tree(&object, None)
+        .expect("Failed to checkout");
+
+    match reference {
+        Some(reference) => repo.set_head(reference.name().unwrap()),
+        None => repo.set_head_detached(object.id()),
+    }
+    .expect("Failed to set HEAD");
+}
+
 fn main() {
     Args::parse();
 
@@ -81,5 +93,5 @@ fn main() {
         .map(|out| out.selected_items)
         .unwrap_or_else(Vec::new);
 
-    println!("{}", selected_items.first().unwrap().output());
+    checkout(repo, selected_items.first().unwrap().output().to_string());
 }
