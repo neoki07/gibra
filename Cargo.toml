@@ -2,8 +2,12 @@
 name = "git-co"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license-file = "LICENSE"
+description = "A command-line tool for simplified git branch checkout."
+homepage = "https://github.com/ot07/git-co"
+repository = "https://github.com/ot07/git-co"
+readme = "README.md"
+keywords = ["git", "branch", "checkout", "cli"]
 
 [dependencies]
 clap = { version = "4.3.0", features = ["derive"] }
