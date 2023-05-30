@@ -1,7 +1,8 @@
 use clap::Parser;
-use git2::{BranchType, Repository};
+use git2::Repository;
 use skim::prelude::*;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -11,7 +12,6 @@ struct Args {}
 #[derive(Clone, Debug)]
 struct Branch {
     name: String,
-    kind: BranchType,
 }
 
 impl SkimItem for Branch {
@@ -39,15 +39,14 @@ fn get_branches(repo: &Repository) -> Vec<Branch> {
 
     branches
         .map(|branch| {
-            let (branch, branch_type) = match branch {
-                Ok((branch, branch_type)) => (branch, branch_type),
+            let branch = match branch {
+                Ok((branch, _)) => branch,
                 Err(e) => panic!("Failed to get branch: {}", e),
             };
 
             match branch.name() {
                 Ok(Some(name)) => Branch {
                     name: name.to_string(),
-                    kind: branch_type,
                 },
                 Ok(None) => panic!("Failed to get branch name: Empty name"),
                 Err(e) => panic!("Failed to get branch name: {}", e),
@@ -56,23 +55,13 @@ fn get_branches(repo: &Repository) -> Vec<Branch> {
         .collect()
 }
 
-fn checkout(repo: Repository, branch: Branch) {
-    match branch.kind {
-        BranchType::Local => {
-            let (object, reference) = repo.revparse_ext(&branch.name).expect("Object not found");
-            repo.checkout_tree(&object, None)
-                .expect("Failed to checkout");
-
-            match reference {
-                Some(reference) => repo.set_head(reference.name().unwrap()),
-                None => repo.set_head_detached(object.id()),
-            }
-            .expect("Failed to set HEAD");
-        }
-        BranchType::Remote => {
-            todo!()
-        }
-    }
+fn checkout(branch_name: String) {
+    Command::new("git")
+        .args(&["checkout", branch_name.as_str()])
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .output()
+        .expect("Failed to execute command");
 }
 
 fn main() {
@@ -99,23 +88,13 @@ fn main() {
 
     drop(tx);
 
-    let selected_branch = Skim::run_with(&options, Some(rx))
+    let selected_branch_name = Skim::run_with(&options, Some(rx))
         .map(|out| out.selected_items)
-        .unwrap_or_else(Vec::new)
-        .iter()
-        .map(|selected_branch| {
-            (**selected_branch)
-                .as_any()
-                .downcast_ref::<Branch>()
-                .unwrap()
-                .to_owned()
-        })
-        .collect::<Vec<Branch>>()
+        .unwrap()
         .first()
         .unwrap()
-        .to_owned();
+        .output()
+        .to_string();
 
-    println!("{:?}", selected_branch);
-
-    checkout(repo, selected_branch);
+    checkout(selected_branch_name);
 }
