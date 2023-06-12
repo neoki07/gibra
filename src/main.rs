@@ -31,6 +31,22 @@ fn find_git_root() -> Option<PathBuf> {
     Some(git_dir)
 }
 
+fn get_current_branch(repo: &Repository) -> Branch {
+    let head = match repo.head() {
+        Ok(head) => head,
+        Err(e) => panic!("Failed to get HEAD: {}", e),
+    };
+
+    let branch = match head.shorthand() {
+        Some(branch) => branch,
+        None => panic!("Failed to get branch name"),
+    };
+
+    Branch {
+        name: branch.to_string(),
+    }
+}
+
 fn get_branches(repo: &Repository) -> Vec<Branch> {
     let branches = match repo.branches(None) {
         Ok(branches) => branches,
@@ -77,24 +93,34 @@ fn main() {
         Err(e) => panic!("Failed to open repository: {}", e),
     };
 
+    let current_branch = get_current_branch(&repo);
     let branches = get_branches(&repo);
 
     let options = SkimOptionsBuilder::default().build().unwrap();
 
     let (tx, rx): (SkimItemSender, SkimItemReceiver) = unbounded();
-    branches.iter().for_each(|branch| {
-        let _ = tx.send(Arc::new(branch.clone()));
-    });
+
+    let _ = tx.send(Arc::new(current_branch.name.clone()));
+    branches
+        .iter()
+        .filter(|branch| branch.name != current_branch.name)
+        .for_each(|branch| {
+            let _ = tx.send(Arc::new(branch.clone()));
+        });
 
     drop(tx);
 
-    let selected_branch_name = Skim::run_with(&options, Some(rx))
-        .map(|out| out.selected_items)
-        .unwrap()
-        .first()
-        .unwrap()
-        .output()
-        .to_string();
+    Skim::run_with(&options, Some(rx)).map(|out| match out.final_key {
+        Key::Enter => {
+            let selected_branch_name = out
+                .selected_items
+                .first()
+                .expect("Failed to get selected item")
+                .output()
+                .to_string();
 
-    checkout(selected_branch_name);
+            checkout(selected_branch_name);
+        }
+        _ => (),
+    });
 }
