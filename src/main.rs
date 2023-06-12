@@ -110,13 +110,17 @@ fn main() {
 
     drop(tx);
 
-    let selected_branch_name = Skim::run_with(&options, Some(rx))
-        .map(|out| out.selected_items)
-        .unwrap()
-        .first()
-        .unwrap()
-        .output()
-        .to_string();
+    Skim::run_with(&options, Some(rx)).map(|out| match out.final_key {
+        Key::Enter => {
+            let selected_branch_name = out
+                .selected_items
+                .first()
+                .expect("Failed to get selected item")
+                .output()
+                .to_string();
 
-    checkout(selected_branch_name);
+            checkout(selected_branch_name);
+        }
+        _ => (),
+    });
 }
