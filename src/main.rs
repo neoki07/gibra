@@ -3,6 +3,7 @@ use git2::Repository;
 use skim::prelude::*;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use tuikit::prelude::*;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -111,7 +112,7 @@ fn main() {
     drop(tx);
 
     Skim::run_with(&options, Some(rx)).map(|out| match out.final_key {
-        Key::Enter => {
+        Key::Enter | Key::DoubleClick(MouseButton::Left, _, _) => {
             let selected_branch_name = out
                 .selected_items
                 .first()
