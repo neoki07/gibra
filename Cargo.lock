@@ -465,6 +465,7 @@ dependencies = [
  "clap 4.3.0",
  "git2",
  "skim",
+ "tuikit",
 ]
 
 [[package]]
