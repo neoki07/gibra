@@ -1,5 +1,5 @@
 use clap::Parser;
-use git2::Repository;
+use git2::{BranchType, Repository};
 use skim::prelude::*;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -8,7 +8,11 @@ use tuikit::prelude::*;
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-struct Args {}
+struct Args {
+    /// Show remote branches
+    #[clap(short = 'r', long)]
+    show_remote: bool,
+}
 
 #[derive(Clone, Debug)]
 struct Branch {
@@ -48,8 +52,14 @@ fn get_current_branch(repo: &Repository) -> Branch {
     }
 }
 
-fn get_branches(repo: &Repository) -> Vec<Branch> {
-    let branches = match repo.branches(None) {
+fn get_branches(repo: &Repository, show_remote: bool) -> Vec<Branch> {
+    let branch_filter: Option<BranchType> = if show_remote {
+        None
+    } else {
+        Some(BranchType::Local)
+    };
+
+    let branches = match repo.branches(branch_filter) {
         Ok(branches) => branches,
         Err(e) => panic!("Failed to get branch iterator: {}", e),
     };
@@ -82,7 +92,7 @@ fn checkout(branch_name: String) {
 }
 
 fn main() {
-    Args::parse();
+    let args = Args::parse();
 
     let git_root = match find_git_root() {
         Some(git_root) => git_root,
@@ -95,7 +105,7 @@ fn main() {
     };
 
     let current_branch = get_current_branch(&repo);
-    let branches = get_branches(&repo);
+    let branches = get_branches(&repo, args.show_remote);
 
     let options = SkimOptionsBuilder::default().build().unwrap();
 
