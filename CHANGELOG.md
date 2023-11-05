@@ -1,3 +1,10 @@
+## 0.3.0 (Nov 5, 2023)
+
+- Add `remote-only` option to display only remote branches
+- Add `local-only` option to display only local branches
+- Remove `show-remote` option
+- Don't display the current branch when the `remote-only` option is set to `true`
+
 ## 0.2.0 (Jul 29, 2023)
 
 - Add `show-remote` option to display remote branches

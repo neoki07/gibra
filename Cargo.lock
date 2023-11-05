@@ -460,7 +460,7 @@ dependencies = [
 
 [[package]]
 name = "git-co"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap 4.3.0",
  "git2",
