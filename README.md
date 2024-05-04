@@ -29,4 +29,4 @@ The branch selection screen will display a list of available branches. Use the a
 
 ## License
 
-[MIT License](https://github.com/ot07/git-co/blob/main/LICENSE)
+[MIT License](https://github.com/ne-oki/git-co/blob/main/LICENSE)
