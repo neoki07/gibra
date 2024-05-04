@@ -4,8 +4,8 @@ version = "0.3.0"
 edition = "2021"
 license-file = "LICENSE"
 description = "A command-line tool for simplified git branch checkout."
-homepage = "https://github.com/ot07/git-co"
-repository = "https://github.com/ot07/git-co"
+homepage = "https://github.com/ne-oki/git-co"
+repository = "https://github.com/ne-oki/git-co"
 readme = "README.md"
 keywords = ["git", "branch", "checkout", "cli"]
 
