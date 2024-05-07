@@ -1,3 +1,7 @@
+## 0.3.1 (May 7, 2024)
+
+- Update username
+
 ## 0.3.0 (Nov 5, 2023)
 
 - Add `remote-only` option to display only remote branches
