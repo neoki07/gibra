@@ -13,4 +13,3 @@ keywords = ["git", "branch", "checkout", "cli"]
 clap = { version = "4.3.0", features = ["derive"] }
 git2 = "0.17.1"
 skim = "0.10.4"
-tuikit = "0.5.0"
