@@ -1,3 +1,9 @@
+## 0.4.0 (May 12, 2024)
+
+- Change crate name to `gibra`
+- Checkout tracking branch when remote branch is selected
+- Change TUI
+
 ## 0.3.1 (May 7, 2024)
 
 - Update username
