@@ -34,11 +34,6 @@ impl ExactOrFuzzyEngineFactory {
         self
     }
 
-    pub fn fuzzy_algorithm(mut self, fuzzy_algorithm: FuzzyAlgorithm) -> Self {
-        self.fuzzy_algorithm = fuzzy_algorithm;
-        self
-    }
-
     pub fn rank_builder(mut self, rank_builder: Arc<RankBuilder>) -> Self {
         self.rank_builder = rank_builder;
         self

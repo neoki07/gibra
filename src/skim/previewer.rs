@@ -13,7 +13,7 @@ use nix::libc;
 use regex::Regex;
 use tuikit::prelude::{Event as TermEvent, *};
 
-use crate::skim::ansi::{ANSIParser, AnsiString};
+use crate::skim::ansi::AnsiString;
 use crate::skim::event::{Event, EventHandler, UpdateScreen};
 use crate::skim::spinlock::SpinLock;
 use crate::skim::util::{atoi, clear_canvas, depends_on_items, inject_command, InjectContext};
@@ -211,32 +211,6 @@ impl Previewer {
 
         let preview_event = match new_item {
             Some(item) => match (item.preview(preview_context), PreviewPosition::default()) {
-                (ItemPreview::Text(text), pos) => PreviewEvent::PreviewPlainText(text, pos),
-                (ItemPreview::AnsiText(text), pos) => PreviewEvent::PreviewAnsiText(text, pos),
-                (ItemPreview::TextWithPos(text, pos), _) => {
-                    PreviewEvent::PreviewPlainText(text, pos)
-                }
-                (ItemPreview::AnsiWithPos(text, pos), _) => {
-                    PreviewEvent::PreviewAnsiText(text, pos)
-                }
-                (ItemPreview::Command(cmd), pos) | (ItemPreview::CommandWithPos(cmd, pos), _) => {
-                    if depends_on_items(&cmd) && self.prev_item.is_none() {
-                        debug!("the command for preview refers to items and currently there is no item");
-                        debug!("command to execute: [{}]", cmd);
-                        PreviewEvent::PreviewPlainText(
-                            "no item matched".to_string(),
-                            Default::default(),
-                        )
-                    } else {
-                        let cmd = inject_command(&cmd, inject_context).to_string();
-                        let preview_command = PreviewCommand {
-                            cmd,
-                            columns,
-                            lines,
-                        };
-                        PreviewEvent::PreviewCommand(preview_command, pos)
-                    }
-                }
                 (ItemPreview::Global, _) => {
                     let cmd = self.preview_cmd.clone().expect("previewer: not provided");
                     if depends_on_items(&cmd) && self.prev_item.is_none() {
@@ -438,7 +412,6 @@ pub struct PreviewCommand {
 enum PreviewEvent {
     PreviewCommand(PreviewCommand, PreviewPosition),
     PreviewPlainText(String, PreviewPosition),
-    PreviewAnsiText(String, PreviewPosition),
     Noop,
     Abort,
 }
@@ -532,11 +505,6 @@ where
                     text.lines().map(|line| line.to_string().into()).collect(),
                     pos,
                 );
-            }
-            PreviewEvent::PreviewAnsiText(text, pos) => {
-                let mut parser = ANSIParser::default();
-                let color_lines = text.lines().map(|line| parser.parse_ansi(line)).collect();
-                callback(color_lines, pos);
             }
             PreviewEvent::Noop => {}
             PreviewEvent::Abort => return,

@@ -139,7 +139,6 @@ impl<T: AsRef<str> + Send + Sync + 'static> SkimItem for T {
 pub enum Matches<'a> {
     None,
     CharIndices(&'a [usize]),
-    CharRange(usize, usize),
     ByteRange(usize, usize),
 }
 
@@ -157,10 +156,6 @@ impl<'a> From<DisplayContext<'a>> for AnsiString<'a> {
             Matches::CharIndices(indices) => {
                 AnsiString::from((context.text, indices, context.highlight_attr))
             }
-            Matches::CharRange(start, end) => AnsiString::new_str(
-                context.text,
-                vec![(context.highlight_attr, (start as u32, end as u32))],
-            ),
             Matches::ByteRange(start, end) => {
                 let ch_start = context.text[..start].chars().count();
                 let ch_end = ch_start + context.text[start..end].chars().count();
@@ -201,15 +196,6 @@ pub struct PreviewPosition {
 }
 
 pub enum ItemPreview {
-    /// execute the command and print the command's output
-    Command(String),
-    /// Display the prepared text(lines)
-    Text(String),
-    /// Display the colored text(lines)
-    AnsiText(String),
-    CommandWithPos(String, PreviewPosition),
-    TextWithPos(String, PreviewPosition),
-    AnsiWithPos(String, PreviewPosition),
     /// Use global command settings to preview the item
     Global,
 }
@@ -219,8 +205,6 @@ pub enum ItemPreview {
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub enum CaseMatching {
-    Respect,
-    Ignore,
     Smart,
 }
 

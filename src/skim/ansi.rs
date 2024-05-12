@@ -221,13 +221,6 @@ pub struct AnsiString<'a> {
 }
 
 impl<'a> AnsiString<'a> {
-    pub fn new_empty() -> Self {
-        Self {
-            stripped: Cow::borrowed(""),
-            fragments: None,
-        }
-    }
-
     fn new_raw_string(string: String) -> Self {
         Self {
             stripped: Cow::owned(string),
@@ -272,11 +265,6 @@ impl<'a> AnsiString<'a> {
 
     pub fn parse(raw: &'a str) -> AnsiString<'static> {
         ANSIParser::default().parse_ansi(raw)
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.stripped.is_empty()
     }
 
     #[inline]

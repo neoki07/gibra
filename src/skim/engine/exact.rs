@@ -29,8 +29,6 @@ pub struct ExactEngine {
 impl ExactEngine {
     pub fn builder(query: &str, param: ExactMatchingParam) -> Self {
         let case_sensitive = match param.case {
-            CaseMatching::Respect => true,
-            CaseMatching::Ignore => false,
             CaseMatching::Smart => contains_upper(query),
         };
 
@@ -86,8 +84,8 @@ impl MatchEngine for ExactEngine {
                 break;
             }
 
-            matched_result =
-                regex_match(&item_text[start..end], &self.query_regex).map(|(s, e)| (s + start, e + start));
+            matched_result = regex_match(&item_text[start..end], &self.query_regex)
+                .map(|(s, e)| (s + start, e + start));
 
             if self.inverse {
                 matched_result = matched_result.xor(Some((0, 0)))

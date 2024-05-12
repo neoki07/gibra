@@ -55,7 +55,11 @@ impl DefaultSkimItem {
 
         let (orig_text, text) = if using_transform_fields && ansi_enabled {
             // ansi and transform
-            let transformed = ansi_parser.parse_ansi(&parse_transform_fields(delimiter, &orig_text, trans_fields));
+            let transformed = ansi_parser.parse_ansi(&parse_transform_fields(
+                delimiter,
+                &orig_text,
+                trans_fields,
+            ));
             (Some(orig_text), transformed)
         } else if using_transform_fields {
             // transformed, not ansi
@@ -108,7 +112,9 @@ impl SkimItem for DefaultSkimItem {
     }
 
     fn get_matching_ranges(&self) -> Option<&[(usize, usize)]> {
-        self.matching_ranges.as_ref().map(|vec| vec as &[(usize, usize)])
+        self.matching_ranges
+            .as_ref()
+            .map(|vec| vec as &[(usize, usize)])
     }
 
     fn display<'a>(&'a self, context: DisplayContext<'a>) -> AnsiString<'a> {
@@ -117,7 +123,6 @@ impl SkimItem for DefaultSkimItem {
                 .iter()
                 .map(|&idx| (context.highlight_attr, (idx as u32, idx as u32 + 1)))
                 .collect(),
-            Matches::CharRange(start, end) => vec![(context.highlight_attr, (start as u32, end as u32))],
             Matches::ByteRange(start, end) => {
                 let ch_start = context.text[..start].chars().count();
                 let ch_end = ch_start + context.text[start..end].chars().count();

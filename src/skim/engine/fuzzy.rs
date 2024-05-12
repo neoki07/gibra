@@ -1,7 +1,6 @@
 use std::fmt::{Display, Error, Formatter};
 use std::sync::Arc;
 
-use fuzzy_matcher::clangd::ClangdMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 
@@ -13,20 +12,7 @@ use bitflags::_core::cmp::min;
 //------------------------------------------------------------------------------
 #[derive(Debug, Copy, Clone)]
 pub enum FuzzyAlgorithm {
-    SkimV1,
     SkimV2,
-    Clangd,
-}
-
-impl FuzzyAlgorithm {
-    pub fn of(algorithm: &str) -> Self {
-        match algorithm.to_ascii_lowercase().as_ref() {
-            "skim_v1" => FuzzyAlgorithm::SkimV1,
-            "skim_v2" | "skim" => FuzzyAlgorithm::SkimV2,
-            "clangd" => FuzzyAlgorithm::Clangd,
-            _ => FuzzyAlgorithm::SkimV2,
-        }
-    }
 }
 
 impl Default for FuzzyAlgorithm {
@@ -70,23 +56,10 @@ impl FuzzyEngineBuilder {
 
     #[allow(deprecated)]
     pub fn build(self) -> FuzzyEngine {
-        use fuzzy_matcher::skim::SkimMatcher;
         let matcher: Box<dyn FuzzyMatcher> = match self.algorithm {
-            FuzzyAlgorithm::SkimV1 => Box::new(SkimMatcher::default()),
             FuzzyAlgorithm::SkimV2 => {
                 let matcher = SkimMatcherV2::default().element_limit(BYTES_1M);
                 let matcher = match self.case {
-                    CaseMatching::Respect => matcher.respect_case(),
-                    CaseMatching::Ignore => matcher.ignore_case(),
-                    CaseMatching::Smart => matcher.smart_case(),
-                };
-                Box::new(matcher)
-            }
-            FuzzyAlgorithm::Clangd => {
-                let matcher = ClangdMatcher::default();
-                let matcher = match self.case {
-                    CaseMatching::Respect => matcher.respect_case(),
-                    CaseMatching::Ignore => matcher.ignore_case(),
                     CaseMatching::Smart => matcher.smart_case(),
                 };
                 Box::new(matcher)

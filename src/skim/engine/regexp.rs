@@ -22,8 +22,6 @@ impl RegexEngine {
         let mut query_builder = String::new();
 
         match case {
-            CaseMatching::Respect => {}
-            CaseMatching::Ignore => query_builder.push_str("(?i)"),
             CaseMatching::Smart => {}
         }
 
@@ -58,8 +56,8 @@ impl MatchEngine for RegexEngine {
                 break;
             }
 
-            matched_result =
-                regex_match(&item_text[start..end], &self.query_regex).map(|(s, e)| (s + start, e + start));
+            matched_result = regex_match(&item_text[start..end], &self.query_regex)
+                .map(|(s, e)| (s + start, e + start));
 
             if matched_result.is_some() {
                 break;
