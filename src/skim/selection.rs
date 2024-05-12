@@ -335,10 +335,6 @@ impl Selection {
         self.items.get(item_idx).map(|item| item.item.clone())
     }
 
-    pub fn get_hscroll_offset(&self) -> i64 {
-        self.hscroll_offset
-    }
-
     pub fn get_num_options(&self) -> usize {
         self.items.len()
     }

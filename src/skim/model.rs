@@ -817,8 +817,6 @@ impl Model {
             matcher_running,
             multi_selection: self.selection.is_multi_selection(),
             selected: self.selection.get_num_selected(),
-            current_item_idx: self.selection.get_current_item_idx(),
-            hscroll_offset: self.selection.get_hscroll_offset(),
             reading: !self
                 .reader_control
                 .as_ref()
@@ -922,8 +920,6 @@ struct Status {
     matcher_running: bool,
     multi_selection: bool,
     selected: usize,
-    current_item_idx: usize,
-    hscroll_offset: i64,
     reading: bool,
     time_since_read: Duration,
     time_since_match: Duration,
@@ -946,7 +942,6 @@ impl Draw for Status {
         //      `-spinner                     `-- still matching
 
         canvas.clear()?;
-        let (screen_width, _) = canvas.size()?;
         clear_canvas(canvas)?;
 
         let info_attr = self.theme.info();
@@ -1019,20 +1014,6 @@ impl Draw for Status {
                 info_attr_bold,
             )?;
         }
-
-        // item cursor
-        let line_num_str = format!(
-            " {}/{}{}",
-            self.current_item_idx,
-            self.hscroll_offset,
-            if self.matcher_running { '.' } else { ' ' }
-        );
-        canvas.print_with_attr(
-            0,
-            screen_width - line_num_str.len(),
-            &line_num_str,
-            info_attr_bold,
-        )?;
 
         Ok(())
     }
