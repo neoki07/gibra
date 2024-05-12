@@ -1,8 +1,15 @@
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate log;
+
+use crate::skim::prelude::*;
 use clap::Parser;
 use git2::{BranchType, Repository};
-use skim::prelude::*;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+
+mod skim;
 
 const REMOTE_BRANCH_NAME_PREFIX: &str = "origin/";
 
