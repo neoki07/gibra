@@ -4,10 +4,13 @@ extern crate lazy_static;
 extern crate log;
 
 use crate::skim::{event::Event, prelude::*};
+use anyhow::{Context, Result};
 use clap::Parser;
 use git2::{BranchType, Repository};
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::{
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 mod skim;
 
@@ -37,120 +40,131 @@ impl SkimItem for Branch {
     }
 }
 
-fn find_git_root() -> Option<PathBuf> {
-    let current_dir = std::env::current_dir().ok()?;
-    let repo = match Repository::discover(&current_dir) {
-        Ok(repo) => repo,
-        Err(_) => return None,
-    };
+fn find_git_root() -> Result<PathBuf> {
+    let current_dir = std::env::current_dir()?;
+    let repo = Repository::discover(&current_dir)?;
+    let git_dir = repo
+        .path()
+        .parent()
+        .with_context(|| "Failed to get parent")?
+        .to_path_buf();
 
-    let git_dir = repo.path().parent()?.to_path_buf();
-    Some(git_dir)
+    Ok(git_dir)
 }
 
-fn get_current_branch(repo: &Repository) -> Branch {
-    let head = match repo.head() {
-        Ok(head) => head,
-        Err(e) => panic!("Failed to get HEAD: {}", e),
-    };
+fn get_current_branch(repo: &Repository) -> Result<Branch> {
+    let head = repo.head().with_context(|| "Failed to get HEAD")?;
+    let current_branch = head
+        .shorthand()
+        .with_context(|| "Failed to get branch name")?;
 
-    let branch = match head.shorthand() {
-        Some(branch) => branch,
-        None => panic!("Failed to get branch name"),
-    };
-
-    Branch {
-        name: branch.to_string(),
+    Ok(Branch {
+        name: current_branch.to_string(),
         branch_type: BranchType::Local,
-    }
+    })
 }
 
-fn get_branches(repo: &Repository, branch_filter: Option<BranchType>) -> Vec<Branch> {
-    let get_local_branches = || match repo.branches(Some(BranchType::Local)) {
-        Ok(branches) => branches,
-        Err(e) => panic!("Failed to get branch iterator: {}", e),
+fn get_branches(repo: &Repository, branch_filter: Option<BranchType>) -> Result<Vec<Branch>> {
+    let get_local_branches = || {
+        repo.branches(Some(BranchType::Local))
+            .with_context(|| "Failed to get local branches")
     };
 
-    let get_remote_branches = || match repo.branches(Some(BranchType::Remote)) {
-        Ok(branches) => branches,
-        Err(e) => panic!("Failed to get branch iterator: {}", e),
+    let get_remote_branches = || {
+        repo.branches(Some(BranchType::Remote))
+            .with_context(|| "Failed to get remote branches")
     };
 
-    match branch_filter {
-        Some(BranchType::Local) => get_local_branches()
+    let branches: Vec<Result<Branch, anyhow::Error>> = match branch_filter {
+        Some(BranchType::Local) => get_local_branches()?
             .map(|branch| {
                 let branch = match branch {
                     Ok((branch, _)) => branch,
-                    Err(e) => panic!("Failed to get branch: {}", e),
+                    Err(e) => return Err(anyhow::Error::msg(e.message().to_string())),
+                    // Err(e) => panic!("Failed to get branch: {}", e),
                 };
 
                 match branch.name() {
-                    Ok(Some(name)) => Branch {
+                    Ok(Some(name)) => Ok(Branch {
                         name: name.to_string(),
                         branch_type: BranchType::Local,
-                    },
-                    Ok(None) => panic!("Failed to get branch name: Empty name"),
-                    Err(e) => panic!("Failed to get branch name: {}", e),
+                    }),
+                    // Ok(None) => panic!("Failed to get branch name: Empty name"),
+                    Ok(None) => Err(anyhow::Error::msg("Branch name is empty")),
+                    // Err(e) => panic!("Failed to get branch name: {}", e),
+                    Err(e) => Err(anyhow::Error::msg(e.message().to_string())),
                 }
             })
             .collect(),
-        Some(BranchType::Remote) => get_remote_branches()
+        Some(BranchType::Remote) => get_remote_branches()?
             .map(|branch| {
                 let branch = match branch {
                     Ok((branch, _)) => branch,
-                    Err(e) => panic!("Failed to get branch: {}", e),
+                    Err(e) => return Err(anyhow::Error::msg(e.message().to_string())),
+                    // Err(e) => panic!("Failed to get branch: {}", e),
                 };
 
                 match branch.name() {
-                    Ok(Some(name)) => Branch {
+                    Ok(Some(name)) => Ok(Branch {
                         name: name.to_string(),
                         branch_type: BranchType::Local,
-                    },
-                    Ok(None) => panic!("Failed to get branch name: Empty name"),
-                    Err(e) => panic!("Failed to get branch name: {}", e),
+                    }),
+                    // Ok(None) => panic!("Failed to get branch name: Empty name"),
+                    Ok(None) => Err(anyhow::Error::msg("Branch name is empty")),
+                    // Err(e) => panic!("Failed to get branch name: {}", e),
+                    Err(e) => Err(anyhow::Error::msg(e.message().to_string())),
                 }
             })
             .collect(),
-        None => get_local_branches()
-            .chain(get_remote_branches())
+        None => get_local_branches()?
+            .chain(get_remote_branches()?)
             .map(|branch| {
                 let (branch, branch_type) = match branch {
                     Ok((branch, branch_type)) => (branch, branch_type),
-                    Err(e) => panic!("Failed to get branch: {}", e),
+                    // Err(e) => panic!("Failed to get branch: {}", e),
+                    Err(e) => return Err(anyhow::Error::msg(e.message().to_string())),
                 };
 
                 match branch.name() {
-                    Ok(Some(name)) => Branch {
+                    Ok(Some(name)) => Ok(Branch {
                         name: name.to_string(),
                         branch_type,
-                    },
-                    Ok(None) => panic!("Failed to get branch name: Empty name"),
-                    Err(e) => panic!("Failed to get branch name: {}", e),
+                    }),
+                    // Ok(None) => panic!("Failed to get branch name: Empty name"),
+                    Ok(None) => Err(anyhow::Error::msg("Branch name is empty")),
+                    // Err(e) => panic!("Failed to get branch name: {}", e),
+                    Err(e) => Err(anyhow::Error::msg(e.message().to_string())),
                 }
             })
             .collect(),
-    }
+    };
+
+    let branches = branches.into_iter().collect::<Result<Vec<Branch>>>()?;
+    Ok(branches)
 }
 
-fn remote_to_local(branch_name: &str) -> String {
-    println!("branch_name: {}", branch_name);
-    branch_name
+fn remote_to_local(branch_name: &str) -> Result<String> {
+    let local_branch_name = branch_name
         .strip_prefix(REMOTE_BRANCH_NAME_PREFIX)
-        .expect("Failed to strip prefix")
-        .to_string()
+        .with_context(|| "Failed to strip prefix")?
+        .to_string();
+
+    Ok(local_branch_name)
 }
 
-fn checkout_local_branch(branch: &Branch) {
+fn checkout_local_branch(branch: &Branch) -> Result<()> {
     Command::new("git")
         .args(&["checkout", &branch.name])
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .output()
-        .expect("Failed to execute checkout command");
+        .with_context(|| "Failed to execute checkout command")?;
+
+    Ok(())
 }
 
-fn checkout_remote_branch(branch: &Branch) {
-    let local_branch_name = remote_to_local(&branch.name);
+fn checkout_remote_branch(branch: &Branch) -> Result<()> {
+    let local_branch_name = remote_to_local(&branch.name)?;
 
     let repo = Repository::open(find_git_root().expect("Failed to find git root"))
         .expect("Failed to open repository");
@@ -165,25 +179,27 @@ fn checkout_remote_branch(branch: &Branch) {
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .output()
-            .expect("Failed to execute checkout command");
+            .with_context(|| "Failed to execute checkout command")?;
     } else {
         Command::new("git")
             .args(&["checkout", &local_branch_name])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .output()
-            .expect("Failed to execute checkout command");
+            .with_context(|| "Failed to execute checkout command")?;
     }
+
+    Ok(())
 }
 
-fn checkout(branch: &Branch) {
+fn checkout(branch: &Branch) -> Result<()> {
     match branch.branch_type {
         BranchType::Local => checkout_local_branch(branch),
         BranchType::Remote => checkout_remote_branch(branch),
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Args::parse();
 
     let branch_filter;
@@ -197,24 +213,19 @@ fn main() {
         branch_filter = None;
     }
 
-    let git_root = match find_git_root() {
-        Some(git_root) => git_root,
-        None => panic!("Failed to find git root"),
-    };
-
-    let repo = match Repository::open(git_root) {
-        Ok(repo) => repo,
-        Err(e) => panic!("Failed to open repository: {}", e),
-    };
+    let git_root = find_git_root().with_context(|| "Failed to find git root")?;
+    let repo = Repository::open(git_root.clone()).with_context(|| "Failed to open repository")?;
 
     let (tx, rx): (SkimItemSender, SkimItemReceiver) = unbounded();
 
-    let current_branch = get_current_branch(&repo);
+    let current_branch =
+        get_current_branch(&repo).with_context(|| "Failed to get current branch")?;
     if !args.remote_only {
         let _ = tx.send(Arc::new(current_branch.clone()));
     }
 
     get_branches(&repo, branch_filter)
+        .with_context(|| "Failed to get branches")?
         .iter()
         .filter(|branch| branch.name != current_branch.name)
         .for_each(|branch| {
@@ -226,7 +237,9 @@ fn main() {
 
     drop(tx);
 
-    let options = SkimOptionsBuilder::default().build().unwrap();
+    let options = SkimOptionsBuilder::default()
+        .build()
+        .with_context(|| "Failed to set up")?;
 
     let selected_branch = Skim::run_with(&options, Some(rx))
         .map(|out| match out.final_event {
@@ -239,10 +252,12 @@ fn main() {
             (**selected_item)
                 .as_any()
                 .downcast_ref::<Branch>()
-                .unwrap()
-                .to_owned()
+                .with_context(|| "Failed to get selected branch")
+                .map(|selected_item| selected_item.to_owned())
         })
-        .expect("Failed to get selected item");
+        .with_context(|| "Failed to get selected branch")??;
 
-    checkout(&selected_branch);
+    checkout(&selected_branch).with_context(|| "Failed to checkout branch")?;
+
+    Ok(())
 }
