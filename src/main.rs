@@ -3,7 +3,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate log;
 
-use crate::skim::prelude::*;
+use crate::skim::{event::Event, prelude::*};
 use clap::Parser;
 use git2::{BranchType, Repository};
 use std::path::PathBuf;
@@ -229,7 +229,10 @@ fn main() {
     let options = SkimOptionsBuilder::default().build().unwrap();
 
     let selected_branch = Skim::run_with(&options, Some(rx))
-        .map(|out| out.selected_items)
+        .map(|out| match out.final_event {
+            Event::EvActAbort => std::process::exit(130),
+            _ => out.selected_items,
+        })
         .unwrap_or_else(Vec::new)
         .first()
         .map(|selected_item| {

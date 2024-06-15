@@ -18,7 +18,7 @@ use reader::Reader;
 
 mod ansi;
 mod engine;
-mod event;
+pub mod event;
 pub mod field;
 mod global;
 mod header;
