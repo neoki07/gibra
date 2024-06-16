@@ -81,7 +81,6 @@ fn get_branches(repo: &Repository, branch_filter: Option<BranchType>) -> Result<
                 let branch = match branch {
                     Ok((branch, _)) => branch,
                     Err(e) => return Err(anyhow::Error::msg(e.message().to_string())),
-                    // Err(e) => panic!("Failed to get branch: {}", e),
                 };
 
                 match branch.name() {
@@ -89,9 +88,7 @@ fn get_branches(repo: &Repository, branch_filter: Option<BranchType>) -> Result<
                         name: name.to_string(),
                         branch_type: BranchType::Local,
                     }),
-                    // Ok(None) => panic!("Failed to get branch name: Empty name"),
                     Ok(None) => Err(anyhow::Error::msg("Branch name is empty")),
-                    // Err(e) => panic!("Failed to get branch name: {}", e),
                     Err(e) => Err(anyhow::Error::msg(e.message().to_string())),
                 }
             })
@@ -101,7 +98,6 @@ fn get_branches(repo: &Repository, branch_filter: Option<BranchType>) -> Result<
                 let branch = match branch {
                     Ok((branch, _)) => branch,
                     Err(e) => return Err(anyhow::Error::msg(e.message().to_string())),
-                    // Err(e) => panic!("Failed to get branch: {}", e),
                 };
 
                 match branch.name() {
@@ -109,9 +105,7 @@ fn get_branches(repo: &Repository, branch_filter: Option<BranchType>) -> Result<
                         name: name.to_string(),
                         branch_type: BranchType::Local,
                     }),
-                    // Ok(None) => panic!("Failed to get branch name: Empty name"),
                     Ok(None) => Err(anyhow::Error::msg("Branch name is empty")),
-                    // Err(e) => panic!("Failed to get branch name: {}", e),
                     Err(e) => Err(anyhow::Error::msg(e.message().to_string())),
                 }
             })
@@ -121,7 +115,6 @@ fn get_branches(repo: &Repository, branch_filter: Option<BranchType>) -> Result<
             .map(|branch| {
                 let (branch, branch_type) = match branch {
                     Ok((branch, branch_type)) => (branch, branch_type),
-                    // Err(e) => panic!("Failed to get branch: {}", e),
                     Err(e) => return Err(anyhow::Error::msg(e.message().to_string())),
                 };
 
@@ -130,9 +123,7 @@ fn get_branches(repo: &Repository, branch_filter: Option<BranchType>) -> Result<
                         name: name.to_string(),
                         branch_type,
                     }),
-                    // Ok(None) => panic!("Failed to get branch name: Empty name"),
                     Ok(None) => Err(anyhow::Error::msg("Branch name is empty")),
-                    // Err(e) => panic!("Failed to get branch name: {}", e),
                     Err(e) => Err(anyhow::Error::msg(e.message().to_string())),
                 }
             })
