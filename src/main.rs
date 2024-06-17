@@ -8,13 +8,12 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use git2::{BranchType, Repository};
 use std::{
+    collections::HashMap,
     path::PathBuf,
     process::{Command, Stdio},
 };
 
 mod skim;
-
-const REMOTE_BRANCH_NAME_PREFIX: &str = "origin/";
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -29,14 +28,38 @@ struct Args {
 }
 
 #[derive(Clone, Debug)]
-struct Branch {
+struct LocalBranch {
     name: String,
-    branch_type: BranchType,
+    remote_name: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+struct RemoteBranch {
+    name: String,
+    local_name: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+enum Branch {
+    Local(LocalBranch),
+    Remote(RemoteBranch),
+}
+
+impl Branch {
+    fn name(self) -> String {
+        match self {
+            Branch::Local(local_branch) => local_branch.name,
+            Branch::Remote(remote_branch) => remote_branch.name,
+        }
+    }
 }
 
 impl SkimItem for Branch {
     fn text(&self) -> Cow<str> {
-        Cow::Borrowed(&self.name)
+        match self {
+            Branch::Local(local_branch) => Cow::Borrowed(&local_branch.name),
+            Branch::Remote(remote_branch) => Cow::Borrowed(&remote_branch.name),
+        }
     }
 }
 
@@ -58,92 +81,98 @@ fn get_current_branch(repo: &Repository) -> Result<Branch> {
         .shorthand()
         .with_context(|| "Failed to get branch name")?;
 
-    Ok(Branch {
+    Ok(Branch::Local(LocalBranch {
         name: current_branch.to_string(),
-        branch_type: BranchType::Local,
-    })
+        remote_name: None,
+    }))
 }
 
 fn get_branches(repo: &Repository, branch_filter: Option<BranchType>) -> Result<Vec<Branch>> {
-    let get_local_branches = || {
-        repo.branches(Some(BranchType::Local))
-            .with_context(|| "Failed to get local branches")
-    };
+    let local_branches: Vec<Branch> = repo
+        .branches(Some(BranchType::Local))
+        .with_context(|| "Failed to get local branches")?
+        .filter_map(|branch| {
+            let branch = match branch {
+                Ok((branch, _)) => branch,
+                Err(_) => return None,
+            };
 
-    let get_remote_branches = || {
-        repo.branches(Some(BranchType::Remote))
-            .with_context(|| "Failed to get remote branches")
-    };
+            let branch_name = match branch.name() {
+                Ok(Some(name)) => name.to_string(),
+                Ok(None) => return None,
+                Err(_) => return None,
+            };
 
-    let branches: Vec<Result<Branch, anyhow::Error>> = match branch_filter {
-        Some(BranchType::Local) => get_local_branches()?
-            .map(|branch| {
-                let branch = match branch {
-                    Ok((branch, _)) => branch,
-                    Err(e) => return Err(anyhow::Error::msg(e.message().to_string())),
-                };
+            let remote_branch_name = match branch.upstream() {
+                Ok(upstream) => match upstream.name() {
+                    Ok(Some(name)) => Some(name.to_string()),
+                    Ok(None) => None,
+                    Err(_) => return None,
+                },
+                Err(_) => return None,
+            };
 
-                match branch.name() {
-                    Ok(Some(name)) => Ok(Branch {
-                        name: name.to_string(),
-                        branch_type: BranchType::Local,
-                    }),
-                    Ok(None) => Err(anyhow::Error::msg("Branch name is empty")),
-                    Err(e) => Err(anyhow::Error::msg(e.message().to_string())),
-                }
-            })
-            .collect(),
-        Some(BranchType::Remote) => get_remote_branches()?
-            .map(|branch| {
-                let branch = match branch {
-                    Ok((branch, _)) => branch,
-                    Err(e) => return Err(anyhow::Error::msg(e.message().to_string())),
-                };
+            Some(Branch::Local(LocalBranch {
+                name: branch_name,
+                remote_name: remote_branch_name,
+            }))
+        })
+        .collect();
 
-                match branch.name() {
-                    Ok(Some(name)) => Ok(Branch {
-                        name: name.to_string(),
-                        branch_type: BranchType::Local,
-                    }),
-                    Ok(None) => Err(anyhow::Error::msg("Branch name is empty")),
-                    Err(e) => Err(anyhow::Error::msg(e.message().to_string())),
-                }
-            })
-            .collect(),
-        None => get_local_branches()?
-            .chain(get_remote_branches()?)
-            .map(|branch| {
-                let (branch, branch_type) = match branch {
-                    Ok((branch, branch_type)) => (branch, branch_type),
-                    Err(e) => return Err(anyhow::Error::msg(e.message().to_string())),
-                };
+    let remote_to_local_map: HashMap<_, _> = local_branches
+        .iter()
+        .filter_map(|branch| match branch {
+            Branch::Local(LocalBranch { name, remote_name }) => match remote_name {
+                Some(remote_name) => Some((remote_name, name)),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
 
-                match branch.name() {
-                    Ok(Some(name)) => Ok(Branch {
-                        name: name.to_string(),
-                        branch_type,
-                    }),
-                    Ok(None) => Err(anyhow::Error::msg("Branch name is empty")),
-                    Err(e) => Err(anyhow::Error::msg(e.message().to_string())),
-                }
-            })
-            .collect(),
-    };
+    if let Some(BranchType::Local) = branch_filter {
+        return Ok(local_branches);
+    }
 
-    let branches = branches.into_iter().collect::<Result<Vec<Branch>>>()?;
+    let remote_branches: Vec<Branch> = repo
+        .branches(Some(BranchType::Remote))
+        .with_context(|| "Failed to get remote branches")?
+        .filter_map(|branch| {
+            let branch = match branch {
+                Ok((branch, _)) => branch,
+                Err(_) => return None,
+            };
+
+            let branch_name = match branch.name() {
+                Ok(Some(name)) => name.to_string(),
+                Ok(None) => return None,
+                Err(_) => return None,
+            };
+
+            let local_branch_name = remote_to_local_map
+                .get(&branch_name)
+                .map(|name| name.to_string());
+
+            Some(Branch::Remote(RemoteBranch {
+                name: branch_name,
+                local_name: local_branch_name,
+            }))
+        })
+        .collect();
+
+    if let Some(BranchType::Remote) = branch_filter {
+        return Ok(remote_branches);
+    }
+
+    let branches = local_branches
+        .into_iter()
+        .chain(remote_branches.into_iter())
+        .collect();
+
     Ok(branches)
 }
 
-fn remote_to_local(branch_name: &str) -> Result<String> {
-    let local_branch_name = branch_name
-        .strip_prefix(REMOTE_BRANCH_NAME_PREFIX)
-        .with_context(|| "Failed to strip prefix")?
-        .to_string();
-
-    Ok(local_branch_name)
-}
-
-fn checkout_local_branch(branch: &Branch) -> Result<()> {
+fn checkout_local_branch(branch: &LocalBranch) -> Result<()> {
     Command::new("git")
         .args(&["checkout", &branch.name])
         .stdout(Stdio::inherit())
@@ -154,39 +183,33 @@ fn checkout_local_branch(branch: &Branch) -> Result<()> {
     Ok(())
 }
 
-fn checkout_remote_branch(branch: &Branch) -> Result<()> {
-    let local_branch_name = remote_to_local(&branch.name)?;
-
-    let repo = Repository::open(find_git_root().expect("Failed to find git root"))
-        .expect("Failed to open repository");
-
-    let local_branch_exists = repo
-        .find_branch(&local_branch_name, BranchType::Local)
-        .is_ok();
-
-    if !local_branch_exists {
-        Command::new("git")
-            .args(&["checkout", "-b", &local_branch_name, &branch.name])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
-            .with_context(|| "Failed to execute checkout command")?;
-    } else {
-        Command::new("git")
-            .args(&["checkout", &local_branch_name])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
-            .with_context(|| "Failed to execute checkout command")?;
+fn checkout_remote_branch(branch: &RemoteBranch) -> Result<()> {
+    match branch.local_name.clone() {
+        Some(local_branch_name) => {
+            Command::new("git")
+                .args(&["checkout", &local_branch_name])
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .output()
+                .with_context(|| "Failed to execute checkout command")?;
+        }
+        None => {
+            Command::new("git")
+                .args(&["checkout", "-b", &branch.name])
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .output()
+                .with_context(|| "Failed to execute checkout command")?;
+        }
     }
 
     Ok(())
 }
 
 fn checkout(branch: &Branch) -> Result<()> {
-    match branch.branch_type {
-        BranchType::Local => checkout_local_branch(branch),
-        BranchType::Remote => checkout_remote_branch(branch),
+    match branch {
+        Branch::Local(branch) => checkout_local_branch(branch),
+        Branch::Remote(branch) => checkout_remote_branch(branch),
     }
 }
 
@@ -217,13 +240,10 @@ fn main() -> Result<()> {
 
     get_branches(&repo, branch_filter)
         .with_context(|| "Failed to get branches")?
-        .iter()
-        .filter(|branch| branch.name != current_branch.name)
+        .into_iter()
+        .filter(|branch| (*branch).clone().name() != current_branch.clone().name())
         .for_each(|branch| {
-            let _ = tx.send(Arc::new(Branch {
-                name: branch.name.clone(),
-                branch_type: branch.branch_type,
-            }));
+            let _ = tx.send(Arc::new(branch.clone()));
         });
 
     drop(tx);
