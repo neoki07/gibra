@@ -13,10 +13,14 @@ A command-line tool that enables interactive branch selection for git, allowing 
 
 ## Installation
 
-Install `gibra` via `cargo`:
+Install `gibra` using `cargo` or `brew`:
 
 ```sh
 cargo install gibra
+```
+
+```sh
+brew install neoki07/tap/gibra
 ```
 
 ## Usage
