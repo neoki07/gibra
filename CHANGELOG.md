@@ -1,3 +1,13 @@
+## 0.4.2 (Jul 3, 2024)
+
+- Aborts when interrupts occur
+- Change how to get the local branch from the remote branch
+- Implement error handling
+
+## 0.4.1 (May 13, 2024)
+
+- Change repository URL
+
 ## 0.4.0 (May 12, 2024)
 
 - Change crate name to `gibra`
